@@ -1,13 +1,42 @@
 # stm-profiler
 
-FIXME: write description
+A profiler for clojure STM.
 
 ## Usage
 
-FIXME: write
+###Requirement
+
+I've only test this profile tool with clojure 1.3, i will try it with clojure 1.2 soon.
+
+###Lein dependency
+
+		[stm-profiler "1.0.0-SNAPSHOT"]
+
+###Usage
+
+		(use 'stm)
+
+It will refers some methods about STM such as dosync to a new one.But take easy,the code was copied from clojure and modified a little to add statistics.And it will not change the behaviours of these functions or macros.
+
+Now,you can start transactions to update two references:
+
+		(def a (ref 1))
+      	(def b (ref 2))
+		(dotimes [_ 100] (future (dosync (alter a + 1) (alter b - 1))))
+
+Then you can use (stm-stats) to get statistics information:
+
+	     => (stm-stats)
+		 {"(alter a + 1)(alter b + 2)" {"AVERAGE_RETRY" 1, "TOTAL_COST" 610, "TOTAL_TIMES" 100, "BARGE_FAIL" 52, "CHANGE_COMMITTED" 60, "AVERAGE_COST" 6, "GET_FAULT" 10}}
+
+It returns a map contains all transaction forms statistics infos such as total transaction times,total retry times,the detail of retries reason and transaction execution cost time.
+
+Also,you can use (clear-stm-stats) to clear current statistics information.
+
+You can get an example in sample.clj.
 
 ## License
 
-Copyright (C) 2012 FIXME
+Copyright (C) 2012 
 
 Distributed under the Eclipse Public License, the same as Clojure.
