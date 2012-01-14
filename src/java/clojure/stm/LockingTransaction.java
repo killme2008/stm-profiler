@@ -40,7 +40,7 @@ public class LockingTransaction {
     public static final long BARGE_WAIT_NANOS = 10 * 1000000;
     // public static int COMMUTE_RETRY_LIMIT = 10;
 
-    private final String form;
+    private String form;
     static final int RUNNING = 0;
     static final int COMMITTING = 1;
     static final int RETRY = 2;
@@ -311,6 +311,7 @@ public class LockingTransaction {
         if (t == null) {
             transaction.set(t = new LockingTransaction(form));
         }
+        t.form = form;
 
         if (t.info != null) {
             return fn.call();
