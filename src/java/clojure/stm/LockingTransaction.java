@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import clojure.lang.IFn;
 import clojure.lang.IPersistentMap;
 import clojure.lang.ISeq;
+import clojure.lang.Keyword;
 import clojure.lang.PersistentHashMap;
 import clojure.lang.RT;
 import clojure.lang.Util;
@@ -40,7 +41,7 @@ public class LockingTransaction {
     public static final long BARGE_WAIT_NANOS = 10 * 1000000;
     // public static int COMMUTE_RETRY_LIMIT = 10;
 
-    private String form;
+    String form;
     static final int RUNNING = 0;
     static final int COMMITTING = 1;
     static final int RETRY = 2;
@@ -53,23 +54,23 @@ public class LockingTransaction {
         this.form = form;
     }
 
-    public final static ConcurrentHashMap<String/* form */, ConcurrentHashMap<StatsItem, AtomicLong>> counter =
-            new ConcurrentHashMap<String, ConcurrentHashMap<StatsItem, AtomicLong>>();
+    public final static ConcurrentHashMap<String/* form */, ConcurrentHashMap<StatsUtils.StatsItem, AtomicLong>> counter =
+            new ConcurrentHashMap<String, ConcurrentHashMap<StatsUtils.StatsItem, AtomicLong>>();
     final static ThreadLocal<LockingTransaction> transaction = new ThreadLocal<LockingTransaction>();
 
 
     public static IPersistentMap getSTMStats() {
         IPersistentMap rt = PersistentHashMap.EMPTY;
-        for (final Map.Entry<String, ConcurrentHashMap<StatsItem, AtomicLong>> entry1 : counter.entrySet()) {
+        for (final Map.Entry<String, ConcurrentHashMap<StatsUtils.StatsItem, AtomicLong>> entry1 : counter.entrySet()) {
             final String form = entry1.getKey();
-            final ConcurrentHashMap<StatsItem, AtomicLong> subMap = entry1.getValue();
+            final ConcurrentHashMap<StatsUtils.StatsItem, AtomicLong> subMap = entry1.getValue();
             IPersistentMap subRt = PersistentHashMap.EMPTY;
             long totalRetry = 0;
-            for (final Map.Entry<StatsItem, AtomicLong> entry2 : subMap.entrySet()) {
-                final StatsItem statsItem = entry2.getKey();
-                final String item = statsItem.name();
+            for (final Map.Entry<StatsUtils.StatsItem, AtomicLong> entry2 : subMap.entrySet()) {
+                final StatsUtils.StatsItem statsItem = entry2.getKey();
+                final Keyword item = Keyword.intern(statsItem.name().replaceAll("_", "-").toLowerCase());
                 final long value = entry2.getValue().get();
-                if (statsItem != StatsItem.TOTAL_COST && statsItem != StatsItem.TOTAL_TIMES) {
+                if (statsItem != StatsUtils.StatsItem.TOTAL_COST && statsItem != StatsUtils.StatsItem.TOTAL_TIMES) {
                     totalRetry += value;
                 }
                 subRt = subRt.assoc(item, value);
@@ -77,8 +78,8 @@ public class LockingTransaction {
             final long totalTimes = subRt.valAt("TOTAL_TIMES") == null ? 0 : (Long) subRt.valAt("TOTAL_TIMES");
             final long totalCost = subRt.valAt("TOTAL_COST") == null ? 0 : (Long) subRt.valAt("TOTAL_COST");
             if (totalTimes > 0) {
-                subRt = subRt.assoc("AVERAGE_COST", Math.round((double) totalCost / totalTimes));
-                subRt = subRt.assoc("AVERAGE_RETRY", Math.round((double) totalRetry / totalTimes));
+                subRt = subRt.assoc(Keyword.intern("average-cost"), Math.round((double) totalCost / totalTimes));
+                subRt = subRt.assoc(Keyword.intern("average-retry"), Math.round((double) totalRetry / totalTimes));
             }
             rt = rt.assoc(form, subRt);
         }
@@ -86,10 +87,10 @@ public class LockingTransaction {
     }
 
     static class RetryEx extends Error {
-        public StatsItem reason;
+        public StatsUtils.StatsItem reason;
 
 
-        public RetryEx(final StatsItem reason) {
+        public RetryEx(final StatsUtils.StatsItem reason) {
             super();
             this.reason = reason;
         }
@@ -159,23 +160,12 @@ public class LockingTransaction {
         }
     }
 
-    enum StatsItem {
-        GET_WRITE_LOCK_FAIL,
-        INTERRUPTED,
-        CHANGE_COMMITTED,
-        BARGE_FAIL,
-        NOT_RUNNING,
-        GET_FAULT,
-        TOTAL_TIMES,
-        TOTAL_COST
-    }
-
-    final RetryEx getWriteLockFail = new RetryEx(StatsItem.GET_WRITE_LOCK_FAIL);
-    final RetryEx interrupted = new RetryEx(StatsItem.INTERRUPTED);
-    final RetryEx changeComitted = new RetryEx(StatsItem.CHANGE_COMMITTED);
-    final RetryEx bargeFail = new RetryEx(StatsItem.BARGE_FAIL);
-    final RetryEx notRunning = new RetryEx(StatsItem.NOT_RUNNING);
-    final RetryEx getFault = new RetryEx(StatsItem.GET_FAULT);
+    final RetryEx getWriteLockFail = new RetryEx(StatsUtils.StatsItem.GET_WRITE_LOCK_FAIL);
+    final RetryEx interrupted = new RetryEx(StatsUtils.StatsItem.INTERRUPTED);
+    final RetryEx changeComitted = new RetryEx(StatsUtils.StatsItem.CHANGE_COMMITTED);
+    final RetryEx bargeFail = new RetryEx(StatsUtils.StatsItem.BARGE_FAIL);
+    final RetryEx notRunning = new RetryEx(StatsUtils.StatsItem.NOT_RUNNING);
+    final RetryEx getFault = new RetryEx(StatsUtils.StatsItem.GET_FAULT);
 
     Info info;
     long readPoint;
@@ -339,7 +329,7 @@ public class LockingTransaction {
         Object ret = null;
         final ArrayList<Ref> locked = new ArrayList<Ref>();
         final ArrayList<Notify> notify = new ArrayList<Notify>();
-        this.statsReason(StatsItem.TOTAL_TIMES, 1);
+        this.statsReason(StatsUtils.StatsItem.TOTAL_TIMES, 1);
         final long start = System.nanoTime();
         for (int i = 0; !done && i < RETRY_LIMIT; i++) {
             try {
@@ -456,7 +446,7 @@ public class LockingTransaction {
             }
         }
         final long end = System.nanoTime();
-        this.statsReason(StatsItem.TOTAL_COST, (end - start) / 1000000);
+        this.statsReason(StatsUtils.StatsItem.TOTAL_COST, (end - start) / 1000000);
         if (!done) {
             throw Util.runtimeException("Transaction failed after reaching retry limit");
         }
@@ -469,25 +459,8 @@ public class LockingTransaction {
     }
 
 
-    private void statsReason(final StatsItem reason, final long delta) {
-        ConcurrentHashMap<StatsItem, AtomicLong> subMap = counter.get(this.form);
-        if (subMap == null) {
-            subMap = new ConcurrentHashMap<LockingTransaction.StatsItem, AtomicLong>();
-            final ConcurrentHashMap<StatsItem, AtomicLong> oldMap = counter.putIfAbsent(this.form, subMap);
-            if (oldMap != null) {
-                subMap = oldMap;
-            }
-        }
-
-        AtomicLong atom = subMap.get(reason);
-        if (atom == null) {
-            atom = new AtomicLong(0);
-            final AtomicLong old = subMap.putIfAbsent(reason, atom);
-            if (old != null) {
-                atom = old;
-            }
-        }
-        atom.addAndGet(delta);
+    private void statsReason(final StatsUtils.StatsItem reason, final long delta) {
+        StatsUtils.statsReason(counter, this.form, reason, delta);
     }
 
 

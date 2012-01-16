@@ -10,7 +10,7 @@ I've only test this profile tool with clojure 1.3, i will try it with clojure 1.
 
 ###Lein dependency
 
-		[stm-profiler "1.0.0-SNAPSHOT"]
+		[stm-profiler "1.0.1-SNAPSHOT"]
 
 ###Usage
 
@@ -27,11 +27,18 @@ Now,you can start transactions to update two references:
 Then you can use (stm-stats) to get statistics informations:
 
 	     => (stm-stats)
-		 {"(alter a + 1)(alter b + 2)" {"AVERAGE_RETRY" 1, "TOTAL_COST" 610, "TOTAL_TIMES" 100, "BARGE_FAIL" 52, "CHANGE_COMMITTED" 60, "AVERAGE_COST" 6, "GET_FAULT" 10}}
-
+		  {"(alter a + 1)(alter b + 1)" {:total-cost 1, :get-fault 1, :barge-fail 3, :change-committed 1, :total-times 100}}
+		  
 It returns a map contains all transaction forms statistics infos such as total transaction times,total retry times,the detail of retries reason and times,and transaction execution cost in milliseconds.
 
-Also,you can use (clear-stm-stats) to clear current statistics information.
+Also,you can use (clear-stm-stats) to clear current statistics information.		  
+		  
+If you want to see the statistics of a reference,you can use ref-stats function:
+
+		 =>(ref-stats a)
+		 {"(alter a + 1)(alter b + 1)" {:alter 105, :get-fault 1, :barge-fail 3, :change-committed 1}		  
+
+It also returns a map contains all transaction forms statistics infos which used this reference,and the result contains the times of special function such as alter invoked with this reference.
 
 You can check this example in sample.clj.
 

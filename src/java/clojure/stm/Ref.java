@@ -12,6 +12,8 @@
 
 package clojure.stm;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -21,8 +23,12 @@ import clojure.lang.IFn;
 import clojure.lang.IPersistentMap;
 import clojure.lang.IRef;
 import clojure.lang.ISeq;
+import clojure.lang.Keyword;
+import clojure.lang.PersistentHashMap;
 import clojure.lang.RT;
 import clojure.lang.Util;
+import clojure.stm.LockingTransaction.RetryEx;
+import clojure.stm.StatsUtils.StatsItem;
 
 
 public class Ref extends ARef implements IFn, Comparable<Ref>, IRef {
@@ -90,6 +96,10 @@ public class Ref extends ARef implements IFn, Comparable<Ref>, IRef {
 
     }
 
+    static enum OpType {
+
+    }
+
     TVal tvals;
     final AtomicInteger faults;
     final ReentrantReadWriteLock lock;
@@ -99,6 +109,9 @@ public class Ref extends ARef implements IFn, Comparable<Ref>, IRef {
 
     volatile int minHistory = 0;
     volatile int maxHistory = 10;
+
+    private final ConcurrentHashMap<String/* form */, ConcurrentHashMap<StatsUtils.StatsItem, AtomicLong>> counter =
+            new ConcurrentHashMap<String, ConcurrentHashMap<StatsUtils.StatsItem, AtomicLong>>();
 
     static final AtomicLong ids = new AtomicLong();
 
@@ -142,7 +155,14 @@ public class Ref extends ARef implements IFn, Comparable<Ref>, IRef {
         if (t == null) {
             return this.currentVal();
         }
-        return t.doGet(this);
+        try {
+            StatsUtils.statsReason(this.counter, t.form, StatsItem.DEREF, 1);
+            return t.doGet(this);
+        }
+        catch (final RetryEx e) {
+            StatsUtils.statsReason(this.counter, t.form, e.reason, 1);
+            throw e;
+        }
     }
 
 
@@ -186,24 +206,74 @@ public class Ref extends ARef implements IFn, Comparable<Ref>, IRef {
     // }
     // }
 
+    public IPersistentMap getRefStats() {
+        IPersistentMap rt = PersistentHashMap.EMPTY;
+        for (final Map.Entry<String, ConcurrentHashMap<StatsUtils.StatsItem, AtomicLong>> entry1 : this.counter
+            .entrySet()) {
+            final String form = entry1.getKey();
+            final ConcurrentHashMap<StatsUtils.StatsItem, AtomicLong> subMap = entry1.getValue();
+            IPersistentMap subRt = PersistentHashMap.EMPTY;
+            for (final Map.Entry<StatsUtils.StatsItem, AtomicLong> entry2 : subMap.entrySet()) {
+                final StatsUtils.StatsItem statsItem = entry2.getKey();
+                final Keyword item = Keyword.intern(statsItem.name().replaceAll("_", "-").toLowerCase());
+                final long value = entry2.getValue().get();
+                subRt = subRt.assoc(item, value);
+            }
+            rt = rt.assoc(form, subRt);
+        }
+        return rt;
+    }
+
+
     public Object set(final Object val) {
-        return LockingTransaction.getEx().doSet(this, val);
+        final LockingTransaction t = LockingTransaction.getEx();
+        StatsUtils.statsReason(this.counter, t.form, StatsItem.SET, 1);
+        try {
+            return LockingTransaction.getEx().doSet(this, val);
+        }
+        catch (final RetryEx e) {
+            StatsUtils.statsReason(this.counter, t.form, e.reason, 1);
+            throw e;
+        }
     }
 
 
     public Object commute(final IFn fn, final ISeq args) {
-        return LockingTransaction.getEx().doCommute(this, fn, args);
+        final LockingTransaction t = LockingTransaction.getEx();
+        StatsUtils.statsReason(this.counter, t.form, StatsItem.COMMUTE, 1);
+        try {
+            return LockingTransaction.getEx().doCommute(this, fn, args);
+        }
+        catch (final RetryEx e) {
+            StatsUtils.statsReason(this.counter, t.form, e.reason, 1);
+            throw e;
+        }
     }
 
 
     public Object alter(final IFn fn, final ISeq args) {
         final LockingTransaction t = LockingTransaction.getEx();
-        return t.doSet(this, fn.applyTo(RT.cons(t.doGet(this), args)));
+        StatsUtils.statsReason(this.counter, t.form, StatsItem.ALTER, 1);
+        try {
+            return t.doSet(this, fn.applyTo(RT.cons(t.doGet(this), args)));
+        }
+        catch (final RetryEx e) {
+            StatsUtils.statsReason(this.counter, t.form, e.reason, 1);
+            throw e;
+        }
     }
 
 
     public void touch() {
-        LockingTransaction.getEx().doEnsure(this);
+        final LockingTransaction t = LockingTransaction.getEx();
+        StatsUtils.statsReason(this.counter, t.form, StatsItem.ENSURE, 1);
+        try {
+            t.doEnsure(this);
+        }
+        catch (final RetryEx e) {
+            StatsUtils.statsReason(this.counter, t.form, e.reason, 1);
+            throw e;
+        }
     }
 
 
