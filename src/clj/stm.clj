@@ -28,7 +28,7 @@
          (clojure.lang.Var/resetThreadBindingFrame frame)
          (apply f x y z args)))))
 (defn ^{:private true}
-  setup-reference [^clojure.lang.ARef r options]
+  setup-reference [^clojure.stm.ARef r options]
   (let [opts (apply hash-map options)]
     (when (:meta opts)
       (.resetMeta r (:meta opts)))
