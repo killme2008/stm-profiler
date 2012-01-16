@@ -27,7 +27,7 @@ Now,you can start transactions to update two references:
 Then you can use (stm-stats) to get statistics informations:
 
 	     => (stm-stats)
-		  {"(alter a + 1)(alter b + 1)" {:total-cost 1, :get-fault 1, :barge-fail 3, :change-committed 1, :total-times 100}}
+		 {"(alter a + 1)(alter b - 1)" {:not-running 9, :average-retry 15, :total-cost 3048, :get-fault 52, :barge-fail 372, :change-committed 1064, :total-times 100, :average-cost 30}}
 		  
 It returns a map contains all transaction forms statistics infos such as total transaction times,total retry times,the detail of retries reason and times,and transaction execution cost in milliseconds.
 
@@ -36,9 +36,9 @@ Also,you can use (clear-stm-stats) to clear current statistics information.
 If you want to see the statistics of a reference,you can use ref-stats function:
 
 		 =>(ref-stats a)
-		 {"(alter a + 1)(alter b + 1)" {:alter 105, :get-fault 1, :barge-fail 3, :change-committed 1}		  
+		 {"(alter a + 1)(alter b - 1)" {:alter 1601, :get-fault 52, :barge-fail 372, :change-committed 1064}}		  
 
-It also returns a map contains all transaction forms statistics infos which used this reference,and the result contains the times of special function such as alter invoked with this reference.
+It also returns a map contains all transaction forms statistics infos which used this reference,and the result contains the times of special function such as alter invoked with this reference.The :alter included retry times.
 
 You can check this example in sample.clj.
 

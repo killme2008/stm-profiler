@@ -75,8 +75,12 @@ public class LockingTransaction {
                 }
                 subRt = subRt.assoc(item, value);
             }
-            final long totalTimes = subRt.valAt("TOTAL_TIMES") == null ? 0 : (Long) subRt.valAt("TOTAL_TIMES");
-            final long totalCost = subRt.valAt("TOTAL_COST") == null ? 0 : (Long) subRt.valAt("TOTAL_COST");
+            final long totalTimes =
+                    subRt.valAt(Keyword.intern("total-times")) == null ? 0 : (Long) subRt.valAt(Keyword
+                        .intern("total-times"));
+            final long totalCost =
+                    subRt.valAt(Keyword.intern("total-cost")) == null ? 0 : (Long) subRt.valAt(Keyword
+                        .intern("total-cost"));
             if (totalTimes > 0) {
                 subRt = subRt.assoc(Keyword.intern("average-cost"), Math.round((double) totalCost / totalTimes));
                 subRt = subRt.assoc(Keyword.intern("average-retry"), Math.round((double) totalRetry / totalTimes));
