@@ -10,7 +10,7 @@ I've only test this profile tool with clojure 1.3, i will try it with clojure 1.
 
 ###Lein dependency
 
-		[stm-profiler "1.0.1-SNAPSHOT"]
+		[stm-profiler "1.0.2-SNAPSHOT"]
 
 ###Usage
 
@@ -31,7 +31,7 @@ Then you can use (stm-stats) to get statistics informations:
 		  
 It returns a map contains all transaction forms statistics infos such as total transaction times,total retry times,the detail of retries reason and times,and transaction execution cost in milliseconds.
 
-Also,you can use (clear-stm-stats) to clear current statistics information.		  
+Also,you can use `(clear-stm-stats)` to clear current statistics information.		  
 		  
 If you want to see the statistics of a reference,you can use ref-stats function:
 
@@ -39,6 +39,7 @@ If you want to see the statistics of a reference,you can use ref-stats function:
 		 {"(alter a + 1)(alter b - 1)" {:alter 1601, :get-fault 52, :barge-fail 372, :change-committed 1064}}		  
 
 It also returns a map contains all transaction forms statistics infos which used this reference,and the result contains the times of special function such as alter invoked with this reference.The :alter included retry times.
+Then,you can use `(clear-ref-stats ref)` to clear reference statistics infos.
 
 You can check this example in sample.clj.
 

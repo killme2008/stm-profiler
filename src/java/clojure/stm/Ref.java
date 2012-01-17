@@ -147,6 +147,11 @@ public class Ref extends ARef implements IFn, Comparable<Ref>, IRef {
     }
 
 
+    public void clearStats() {
+        this.counter.clear();
+    }
+
+
     // *
 
     @Override

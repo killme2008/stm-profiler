@@ -10,3 +10,9 @@
 (prn "stm statistics" (stm-stats))
 (prn "reference a statistics" (ref-stats a))
 (prn "reference b statistics" (ref-stats b))
+
+(clear-stm-stats)
+(clear-ref-stats a)
+(prn "after clear")
+(prn "stm statistics" (stm-stats))
+(prn "reference a statistics" (ref-stats a))  

@@ -403,6 +403,11 @@
 
 (defn ref-stats
   "Gets the reference's statistics informations"
-  [^clojure.stm.Ref ref]
-    (.getRefStats ref))
+  [^clojure.stm.Ref r]
+    (.getRefStats r))
+
+(defn clear-ref-stats
+  "clear the reference statistics information right now."
+  [^clojure.stm.Ref r]
+  (.clearStats r))
 

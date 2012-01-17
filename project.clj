@@ -1,4 +1,4 @@
-(defproject stm-profiler "1.0.1-SNAPSHOT"
+(defproject stm-profiler "1.0.2-SNAPSHOT"
   :description "A profiler for clojure STM"
   :java-source-path "src/java"
   :source-path "src/clj"
